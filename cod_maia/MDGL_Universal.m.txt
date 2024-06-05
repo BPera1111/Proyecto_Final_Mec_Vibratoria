@@ -1,0 +1,152 @@
+clc; clear; close;
+
+% EJ. MULTIPLES GRADOS DE LIBERTAD
+
+% CANTIDAD DE GRADOS DE LIBERTAD
+GDL = 3;
+gradoParaMaximos = 1;
+
+masa = 30;
+I = 3;
+r = 0.1;
+k = 4e3;
+
+
+
+dt = 0.02;
+tf = 1;
+vt = 0:dt:tf;
+M = [masa, 0, 0;
+    0, masa, 0;
+    0, 0, I];
+K = [2*k, 0, -k*r;
+    0, k, -2*k*r;
+    -k*r, -2*k*r, 5*k*r^2];
+datoCoZitaModal = 'C';
+C = [0 0 0       % SOLO COMPLETAR UNO DE LOS DOS O LA MATRIZ C O zitaModal
+    0 0 0
+    0 0 0];
+zitaModal = [0; 0]; % ESTO NO ES PARAMETRO FISICO ES MODAL
+
+
+
+x0 = [0; 0; 30*pi/180];            % CI desplazamiento
+xd0 = [0;0;0];                   % CI velocidad
+
+[autovectores, autovalores] = eig(K,M);
+
+frecuencias = autovalores.^0.5;
+ome = diag(frecuencias);
+
+F = zeros(GDL,length(vt));
+% F(1,:) = 50*sin(1.1*ome(1)*vt);  %ESTO PARA EL CASO DE FUERZA EXTERNA
+
+% METODO DE DESCOMPOSICION MODAL ------------------------------------------
+MM = autovectores'*M*autovectores; % masa modal
+KK = autovectores'*K*autovectores; % rigidez modal
+CC = autovectores'*C*autovectores; % amortiguacion modal
+cModal = diag(CC);
+Y0 = autovectores'*M*x0; % desplazamientos iniciales en coordenadas modales
+Yd0 = autovectores'*M*xd0; % velocidades iniciales en coordenadas modales
+
+% primer termino de la solucion en coordenadas modales
+Y1 = zeros(GDL,length(vt));
+for i=1:GDL
+    Y1(i,:) = Y0(i)*cos(ome(i)*vt);
+end
+
+% segundo termino de la solucion en coordenadas modales
+Y2 = zeros(GDL,length(vt));
+for i=1:GDL
+    Y2(i,:) = Yd0(i)*sin(ome(i)*vt);
+end
+
+
+Y = Y1 + Y2; % desplazamientos en coordenadas modales
+X = autovectores*Y; % paso de coordenadas modales a geometricas
+
+% SOLUCION FORZADA
+
+Q = autovectores'*F;
+YR = zeros(GDL,length(vt));
+
+switch GDL
+    case 3
+        switch datoCoZitaModal
+            case 'zitaModal'
+        [vtR1,YForzadaRunge1] = ode45(@(t,y) odefun(t,y,zitaModal(1),ome(1),Q(1,:),dt,'zitaModal'),[0 tf],[Y0(1),Yd0(1)]);
+        [vtR2,YForzadaRunge2] = ode45(@(t,y) odefun(t,y,zitaModal(2),ome(2),Q(2,:),dt,'zitaModal'),[0 tf],[Y0(2),Yd0(2)]);
+        [vtR3,YForzadaRunge3] = ode45(@(t,y) odefun(t,y,zitaModal(3),ome(3),Q(3,:),dt,'zitaModal'),[0 tf],[Y0(3),Yd0(3)]);
+            case 'C'
+        [vtR1,YForzadaRunge1] = ode45(@(t,y) odefun(t,y,cModal(1),ome(1),Q(1,:),dt,'C'),[0 tf],[Y0(1),Yd0(1)]);
+        [vtR2,YForzadaRunge2] = ode45(@(t,y) odefun(t,y,cModal(2),ome(2),Q(2,:),dt,'C'),[0 tf],[Y0(2),Yd0(2)]);
+        [vtR3,YForzadaRunge3] = ode45(@(t,y) odefun(t,y,cModal(3),ome(3),Q(3,:),dt,'C'),[0 tf],[Y0(3),Yd0(3)]);
+        end
+        YR(1,:) = interp1(vtR1,YForzadaRunge1(:,1),vt);
+        YR(2,:) = interp1(vtR2,YForzadaRunge2(:,1),vt);
+        YR(3,:) = interp1(vtR3,YForzadaRunge3(:,1),vt);
+    case 2
+        switch datoCoZitaModal
+            case 'zitaModal'
+        [vtR1,YForzadaRunge1] = ode45(@(t,y) odefun(t,y,zitaModal(1),ome(1),Q(1,:),dt,'zitaModal'),[0 tf],[Y0(1),Yd0(1)]);
+        [vtR2,YForzadaRunge2] = ode45(@(t,y) odefun(t,y,zitaModal(2),ome(2),Q(2,:),dt,'zitaModal'),[0 tf],[Y0(2),Yd0(2)]);
+        
+            case 'C'
+        [vtR1,YForzadaRunge1] = ode45(@(t,y) odefun(t,y,cModal(1),ome(1),Q(1,:),dt,'C'),[0 tf],[Y0(1),Yd0(1)]);
+        [vtR2,YForzadaRunge2] = ode45(@(t,y) odefun(t,y,cModal(2),ome(2),Q(2,:),dt,'C'),[0 tf],[Y0(2),Yd0(2)]);
+        
+        end
+        YR(1,:) = interp1(vtR1,YForzadaRunge1(:,1),vt);
+        YR(2,:) = interp1(vtR2,YForzadaRunge2(:,1),vt);
+
+end
+
+XR = autovectores*YR;
+
+% GRAFICAS Y PUNTOS MAXIMOS -----------------------------------------------
+
+% puntos maximos
+[maximos,ind_max] = findpeaks(X(gradoParaMaximos,:)); % cambiar segun el gdl que pida
+tiempos_max = vt(ind_max);
+
+% grafica de los 3gdl juntos
+figure(1);
+for i = 1:GDL
+    subplot(GDL,1,i);
+    plot(vt, X(i,:), 'LineWidth', 1);
+    xlabel('Tiempo (s)');
+    ylabel('Desplazamiento ');
+    title(['Desplazamiento GL ', num2str(i),' vs Tiempo']);
+    grid on
+end
+
+
+% RESPUESTAS --------------------------------------------------------------
+
+disp('Frecuencias naturales: ');
+disp(frecuencias);
+disp('Matriz modal: ');
+disp(autovectores);
+disp('Condiciones iniciales en coordenadas modales (y0, yd0): ');
+disp(Y0);
+disp(Yd0);
+disp('Amplitudes positivas maximas en radianes: ');
+gr = maximos;
+disp(gr);
+disp('Tiempos en donde ocurren los maximos: ');
+disp(tiempos_max);
+
+% SUBFUNCION RESPUESTA RUNGEKUTTA------------------------------------------
+
+function dydt = odefun(t,y,zita,w,Q,dt,datoCoZitaModal)
+n=round(t/dt)+1;
+if n>=length(Q)                 % y(1) es posicion
+    n=length(Q);                 % y(2) es velocidad
+end
+switch datoCoZitaModal
+    case 'zitaModal'
+        dydt = [0,1;-w^2,-2*zita*w]*[y(1);y(2)]+[0;Q(n)];
+    case 'C'
+        dydt = [0,1;-w^2,-zita]*[y(1);y(2)]+[0;Q(n)];
+end
+end

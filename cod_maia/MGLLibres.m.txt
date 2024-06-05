@@ -1,0 +1,93 @@
+clc; clear; close;
+
+% Definicion de variables
+m = 30;
+I = 1/12;
+k = 4*10^3;
+L = 1;
+M = [ m*L^2/9, m, 2*m];
+zita = [0; 0; 0];
+
+M_masas = diag(M);
+
+K_rigidez = [ 10*k*L^2/9 ,       k*L/3,     -2*k*L/3; 
+              k*L/3,            k,           0;
+              -2*k*L/3,          0,            k    ;
+
+% Valores iniciales
+x0 = [30*pi/180; 0; 0];
+v0 = [0; 0; 0];
+
+% Calculo de autovalores y autovectores normalizados
+[V, lambda] = eig(K_rigidez, M_masas);
+w = diag(sqrt(lambda));
+
+% Normalizar los autovectores
+V_norm = V ./ V(1,:);
+
+% Calculo de masas y rigideces modales
+M_modal = V'*M_masas* V;
+K_modal = V'*K_rigidez* V;
+
+% Paso a coordenadas modales las condiciones iniciales
+y0 = V'*M_masas*x0;
+vy0 = V'*M_masas*v0;
+
+% CALCULO DE EDO SIN AMORTIGUACION
+
+% Tiempos
+tf = 3;
+dt = 0.02;
+t = 0:dt:tf;
+
+yt = zeros(length(w),length(t));
+
+for i = 1:length(w)
+    yt(i, :) = y0(i)*cos(w(i)*t) + vy0(i)/w(i)*sin(w(i)*t);
+end
+
+% Paso de coordenadas modales a geometricas
+
+xt = V * yt;
+
+% Grafico de solucion
+figure;
+plot(t, xt(1,:), 'r', t, xt(2,:), 'g', t, xt(3,:), 'b');
+xlabel('Tiempos');
+ylabel('Desplazamaientos (ROJO 1, GRIS 2, AZUL 3)');
+title('Respuesta del sistema en vibraciones libres sin amortiguacion');
+
+%{
+% CALCULO DE EDO CON AMORTIGUACION
+
+% Tiempos
+tf = 2;
+dt = 0.00001;
+t = 0:dt:tf;
+
+% Frecuencias naturales amortiguadas
+wd = w .* sqrt(1 - zita.^2);
+
+% Matriz de amortiguación modal
+C_modal = 2 * zita .* w .* eye(size(M_modal));
+
+% Inicializar matriz de desplazamientos modales
+yt2 = zeros(length(w),length(t));
+
+% Calcular desplazamientos modales en el tiempo
+for i = 1:length(t)
+    yt2(:, i) = exp(-zita .* w .* t(i)) .* (cos(wd .* t(i)) + zita ./ (1 - zita.^2) .* sin(wd .* t(i))) .* y0 + (1 ./ wd .* exp(-zita .* w .* t(i)) .* sin(wd .* t(i))) .* vy0;
+end
+
+% Paso de coordenadas modales a geometricas
+xt2 = V * yt2;
+
+% Graficar la solución
+figure;
+plot(t, xt2(1,:), 'r', t, xt2(2,:), 'g', t, xt2(3,:), 'b');
+xlabel('Tiempo');
+ylabel('Desplazamientos (ROJO 1, VERDE 2, AZUL 3)');
+title('Respuesta del sistema en vibraciones libres con amortiguación');
+
+xt2(:,round(2*pi/w(1)*10^5))
+%}

@@ -1,0 +1,75 @@
+clc; clear;
+
+% Definicion de variables
+m = 36000;
+E = 23500 * 10^6;
+I = 1.56 * 10^(-4);
+h = 3;
+k = 2 * 12 * E * I / h^3;
+zita = [0; 0];    % den Hartog
+g = 9.81;
+mp = 0.05 * m;
+
+w = sqrt(k / m);
+
+kp = w^2 * mp;
+
+M_masas = [m, 0;
+           0, mp];
+
+K_rigidez = [k + kp, -kp;
+              -kp,    kp];
+
+% Calculo de autovalores y autovectores normalizados
+[V, lambda1] = eig(K_rigidez, M_masas);
+w1 = sqrt(diag(lambda1));
+
+% Valores iniciales
+x0 = [0.1; 0];
+v0 = [0; 0];
+P0 = [10000; 0];
+
+% Normalizar los autovectores
+V_norm = V ./ V(1, :);
+
+% Calculo de masas y rigideces modales
+M_modal = V' * M_masas * V;
+K_modal = V' * K_rigidez * V;
+
+% Paso a coordenadas modales las condiciones iniciales
+y0 = V' * M_masas * x0;
+vy0 = V' * M_masas * v0;
+P0_modal = V' * P0;
+
+% CALCULO DE EDO EN VIBRACIONES LIBRES CON PENDULOS CON AMORTIGUACION
+
+% Tiempos
+tf = 15;
+dt = 0.01;
+t = 0:dt:tf;
+
+% Frecuencias naturales amortiguadas
+wd = w1 .* sqrt(1 - zita.^2);
+
+% Inicializar matriz de desplazamientos modales
+yt = zeros(length(w1), length(t));
+
+% Calcular desplazamientos modales en el tiempo
+for i = 1:length(w1)
+    for j = 1:length(t)
+        yt(i, j) = exp(-zita(i) * w1(i) * t(j)) * ...
+                   (cos(wd(i) * t(j)) + (zita(i) / sqrt(1 - zita(i)^2)) * sin(wd(i) * t(j))) * y0(i) + ...
+                   (1 / wd(i) * exp(-zita(i) * w1(i) * t(j)) * sin(wd(i) * t(j))) * vy0(i);
+    end
+end
+
+% Paso de coordenadas modales a geometricas
+xt = V * yt;
+
+% Graficar la solución para vibraciones libres con amortiguación
+figure;
+plot(t, xt(1, :), 'r');
+xlabel('Tiempo');
+ylabel('Desplazamientos');
+title('Respuesta del sistema en vibraciones libres con amortiguación');
+legend('Masa principal');

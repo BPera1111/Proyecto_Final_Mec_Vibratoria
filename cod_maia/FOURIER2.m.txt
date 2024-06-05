@@ -1,0 +1,73 @@
+%{CODIGO PARA CARGA PERIODICA RESUELTO POR SERIES DE FOURIER%}
+clc; clear; close;
+
+% INGRESAR VARIABLES PARA EL SISTEMA
+
+% Definicion de variables del sistema
+k = 40*pi^2;
+c = 1;
+m = 1;
+
+% Ingrese los M armonicos para el sistema
+M = 4;
+% N= 360/30 + 1; % En caso de que se de un paso de w1*dt=30 grados, se necesitan la cantidad de puntos de un periodo
+
+% Definir parametros de la carga periodica
+Po = 40;
+
+% Discretizacion
+dt = 0.025;
+Tp = 0.3;
+t = 0:dt:Tp;
+
+% Definir carga por serie de fourier
+b = zeros(size(M));
+a = zeros(size(M));
+P = zeros(size(t));
+
+a0 = 4*Po/pi; % MULTIPLICAR EL DATO x2
+P = a0/2;
+for i = 1:M
+    a(i) = -4*Po/pi*1/((2*i)^2-1);
+    b(i) = 0;
+    w(i) = 2*pi*(2*i)/Tp;
+    P = P + a(i)*cos(w(i)*t) + b(i)*sin(w(i)*t);
+end
+
+% Grafico carga por fourier
+figure;
+plot(t, P);
+xlabel('Tiempo');
+ylabel('P(t)');
+title('Carga periodica discretizada a n armonicos por fourier');
+
+% Parametros para respuesta en tiempo permanente
+wn = sqrt(k/m);
+zita = c/(2*wn*m);
+
+% Definicion de variables para respuesta en tiempo permanente
+Xp = zeros(size(t));
+beta = zeros(1, M);
+H = zeros(1, M);
+fi = zeros(1, M);
+
+Xp = a0/(2*k);
+for i = 1:M
+    beta(i) = w(i)/wn;
+    H(i) = 1/(k*sqrt((1 - i^2*beta(i)^2)^2 + (2*zita*i*beta(i))^2));
+    fi(i) = atan((2*zita*i*beta(i))/(1 - i^2*beta(i)^2));
+    Xp = Xp + a(i)*H(i)*cos(w(i)*t - fi(i))+ b(i)*H(i)*sin(w(i)*t - fi(i));
+    % PREGUNTAR SI XP ES 
+    % Xp = Xp + a(i)*H(i)*cos(i*w(i)*t - fi(i))+ b(i)*H(i)*sin(i*w(i)*t - fi(i));
+end
+
+% Grafico respuesta permanente 
+figure;
+plot(t, Xp);
+xlabel('Tiempo');
+ylabel('Xp(t)');
+title('Desplazamiento de respuesta permanente')
+
+
+
+

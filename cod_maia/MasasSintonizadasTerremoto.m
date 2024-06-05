@@ -1,0 +1,127 @@
+% PROYECTO FINAL VIBRATORIA MASAS SINTONIZADAS
+
+clc; clear; 
+
+load('VectorAceleraciones.mat', 'a');
+
+% Definicion de variables
+m = 36000;
+n = 3;
+E = 23500 * 10^6;
+I = 1.56 * 10^(-4);
+h = 3;
+k = 2 * 12 * E * I / h^3;
+zita = [0.05; 0.05; 0.05; 0.01; 0.01; 0.01];    %den hartog
+g = 9.81;
+F = m * a;
+F = repmat(F, 1, 6)';
+for i = 1:3
+    F(i+3 ,:) = 0;
+end
+
+% Definicion de matrices de masas y rigidez
+M_masas = diag(repmat(m, 1, n));
+K_rigidez = [2 * k, -k, 0;
+            -k, 2 * k, -k;
+             0,   -k,   k];
+
+% Calculo de autovalores y autovectores normalizados
+[V1, lambda1] = eig(K_rigidez, M_masas);
+w1 = sqrt(diag(lambda1));
+
+% Calculo de frecuencias y longitudes de péndulo
+f = w1 ./(2 * pi);
+l = g ./ (w1.^2);
+l(1) = g/(3.5*2*pi)^2;
+
+% Calculo de constantes de los péndulos sintonizados
+mp = 0.05 * m * 3;
+
+% Definicion de matrices de masa y rigidez para el sistema sintonizado
+Mp_masas = zeros(size(6, 6));
+for i = 1:3
+    Mp_masas(i, i) = m;
+end
+Mp_masas(6, 6) = mp;
+Mp_masas(5, 5) = 0.1*Mp_masas(6, 6);
+Mp_masas(4, 4) = 0.1*Mp_masas(5, 5);
+
+kp = zeros(size(3, 1));
+for i = 1:3
+    kp(i, 1) = Mp_masas(i+3, i+3)*g/l(4-i);
+end
+
+Kp_rigidez = [ 2*k + kp(1), -k, 0, -kp(1), 0, 0;
+              -k, 2*k + kp(2), -k, 0, -kp(2), 0;
+               0, -k, k + kp(3), 0, 0, -kp(3);
+              -kp(1), 0, 0, kp(1), 0, 0;
+               0, -kp(2), 0, 0, kp(2), 0;
+               0, 0, -kp(3), 0, 0, kp(3)];
+
+% Calculo de autovalores y autovectores normalizados para el sistema sintonizado
+[V, lambda] = eig(Kp_rigidez, Mp_masas);
+w = sqrt(diag(lambda));
+
+% Valores iniciales
+x0 = [0; 0; 0; 0; 0; 0];
+v0 = [0; 0; 0; 0; 0; 0];
+
+% Normalizar los autovectores
+% V_norm = V ./ V(1,:);
+
+% Calculo de masas y rigideces modales
+M_modal = V' * Mp_masas * V;
+K_modal = V' * Kp_rigidez * V;
+
+% Paso a coordenadas modales las condiciones iniciales
+y0 = V' * Mp_masas * x0;
+vy0 = V' * Mp_masas * v0;
+
+% CALCULO DE EDO EN VIBRACIONES LIBRES CON PENDULOS CON AMORTIGUACION
+
+% Tiempos
+dt = 0.02;
+tf = (length(F)-1)*dt;
+t = 0:dt:tf;
+
+% Frecuencias naturales amortiguadas
+wd = w .* sqrt(1 - zita.^2);
+
+% Calcular desplazamientos modales en el tiempo
+F_modal = V' * F;
+
+yc = zeros(length(w), length(t));
+ys = zeros(length(w), length(t));
+A = zeros(length(w), length(t));
+B = zeros(length(w), length(t));
+X = zeros(length(w), length(t));
+yt = zeros(length(w), length(t));
+
+for i = 1:length(t)
+    for n = 1:length(w)
+        yc(n, i) = F_modal(n, i)*cos(wd(n)*t(i));
+        ys(n, i) = F_modal(n, i)*sin(wd(n)*t(i));
+        if i == 1
+            A(n, i) = 0;
+            B(n, i) = 0;
+        else 
+            A(n, i) = A(n, i-1)*exp(-zita(n)*w(n)*dt)+dt/(2*M_modal(n, n)*wd(n))*(yc(n, i-1)*exp(-zita(n)*w(n)*dt)+yc(n, i));
+            B(n, i) = B(n, i-1)*exp(-zita(n)*w(n)*dt)+dt/(2*M_modal(n, n)*wd(n))*(ys(n, i-1)*exp(-zita(n)*w(n)*dt)+ys(n, i));
+        end
+        X(n, i) = A(n, i)*sin(wd(n)*t(i)) - B(n, i)*cos(wd(n)*t(i));
+        yt(n, i) = exp(-zita(n) * w(n) * t(i)) * ...
+                (cos(wd(n)* t(i)) + zita(n)/sqrt(1 - zita(n)^2)*sin(wd(n)*t(i)))*y0(n) + ...
+                (1/wd(n)*exp(-zita(n)*w(n)* t(i))*sin(wd(n)*t(i)))*vy0(n) + X(n, i);
+    end
+end
+
+% Paso de coordenadas modales a geometricas
+xt = V * yt;
+
+% Graficar la solución para vibraciones libres con amortiguación
+figure;
+plot(t, xt(1,:), 'r', t, xt(2,:), 'g', t, xt(3,:), 'b');
+xlabel('Tiempo');
+ylabel('Desplazamientos (ROJO 1, VERDE 2, AZUL 3)');
+title('Respuesta del sistema en terremoto con amortiguación CON PENDULO');
+grid on;

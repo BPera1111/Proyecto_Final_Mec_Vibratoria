@@ -1,0 +1,67 @@
+clc; clear; close;
+
+% PASO A PASO (DIFERENCIA CENTRAL)
+
+% Definicion de variables del sistema
+m = 10^5;
+zita = 0.02;
+E = 2*10^11;
+A = 2*10^(-4);
+L = 1;
+k = E*A/L;
+F0 = 43*10^5;
+
+wn = sqrt(k/m);
+c = zita*2*wn*m;
+
+% Tiempos
+dt = 0.0001;
+t = 0:dt:8.4;
+n = numel(t);
+
+% Definicion de carga
+Pt = zeros(size(t));
+Ptcarga = [F0, 0];
+Pt(1:length(Ptcarga)) = Ptcarga;
+
+% Definicion de tiempos de carga
+tCarga = 0:0.02:0.02;
+
+Pt = interp1(tCarga, Ptcarga, t, 'linear','extrap'); % Produzco unna interpolacion,
+                                                     % y extrapola despues
+                                                     % de 0.72s
+
+% Mantener los valores de carga en cero después de t = 0.72
+indice = find(t > 0.02);
+Pt(indice) = 0;
+
+% Grafico carga 
+figure;
+plot(t,Pt,'bo-', 'LineWidth', 1);
+xlabel('Tiempo');
+ylabel('Carga P(t)');
+title('Grafico de carga en el tiempo')
+
+% Calcular las velocidades y posiciones usando diferencia central
+v = zeros(size(t));
+x = zeros(size(t));
+fk = zeros(size(t));
+
+% CONDICIONES INICIALES
+v(1) = 0;
+x(1) = 0;
+
+for i = 2:n
+    x(i) = x(i-1) + dt*v(i-1) + dt^2/(2*m)*(Pt(i-1)-c*v(i-1)-k*x(i-1));
+    v(i) = 2*(x(i)-x(i-1))/dt - v(i-1);
+    fk(i) = -x(i)*k;
+end
+
+% Grafico respuesta
+figure;
+hold on; % Esto permite mantener la figura actual y agregar más líneas a ella
+plot(t, x, 'LineWidth', 1);
+hold off; % Esto indica que ya no queremos agregar más líneas a la figura
+xlabel('Tiempo');
+ylabel('Desplazamiento x(t) y Fk(t)');
+title('Respuesta en el tiempo');

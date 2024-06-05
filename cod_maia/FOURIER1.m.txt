@@ -1,0 +1,64 @@
+clc; clear; close;
+
+% Ejercicio 3 Tp 5
+
+% Definicion de variables
+Po = 400*10^3;
+k = 4.4*10^6;
+m = 10*10^3;
+
+% Funcion de carga periodica y fourier
+N = 13; % Numero de puntos totales (tiempos)
+M = 4; % Numero de armonicos
+
+b = zeros(1, M); % Vector fila de b
+seno = zeros(M, N); % Matriz de cosenos
+a0 = zeros(1, N); % Vector fila de b
+
+for i = 1:M
+    b(1, i) = 2*Po/((2*i-1)*pi);
+    for j = 1:N
+        a0(1, j) = Po/2;
+        seno(i, j) = sin(2*pi*(j-1)*(2*i-1)/N); 
+    end
+end
+
+P = a0 + b * seno; % Funcion de fuerza de tamano: 1xM * MxN = 1xN
+
+% Respuesta en carga permanente
+wn = sqrt(k/m);
+zita = 0;
+
+% Inicializar variables
+beta = zeros(1, M);
+temp = zeros(1, M);
+H = zeros(1, M);
+w = zeros(1, M);
+relacionT = 2; % Tp/T = 4/3, entonces beta = w/wn = T/Tp = 3/4
+
+Xp = a0/k;
+for i = 1:M
+    beta(i) = i/relacionT;
+    w(i) = beta(i)*wn;
+    H(i) = 1/(k*sqrt((1-i^2*beta(i)^2)^2));
+    temp(1, i) = H(i)*b(1, i);
+end
+
+t = 0:pi/(6*w(1)):2*pi/w(1); % Vector de tiempos en radianes
+
+Xp = temp * seno;
+
+% Grafico carga por fourier
+figure;
+plot(t, P);
+xlabel('Tiempo');
+ylabel('P(t)');
+title('Carga en fourier P(t)');
+
+% Grafico respuesta permanente 
+figure;
+plot(t, Xp);
+xlabel('Tiempo');
+ylabel('Xp(t)');
+title('Desplzamiento de respuesta permanente')
+

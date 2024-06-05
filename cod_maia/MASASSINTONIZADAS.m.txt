@@ -1,0 +1,136 @@
+% PROYECTO FINAL VIBRATORIA MASAS SINTONIZADAS
+
+clc; clear; 
+
+% Definicion de variables
+m = 36000;
+n = 3;
+E = 23500 * 10^6;
+I = 1.56 * 10^(-4);
+h = 3;
+k = 2 * 12 * E * I / h^3;
+zita = [0.05; 0.05; 0.05; 0.01; 0.01; 0.01];    %den hartog
+g = 9.81;
+
+% Definicion de matrices de masas y rigidez
+M_masas = diag(repmat(m, 1, n));
+K_rigidez = [2 * k, -k, 0;
+            -k, 2 * k, -k;
+             0,   -k,   k];
+
+% Calculo de autovalores y autovectores normalizados
+[V1, lambda1] = eig(K_rigidez, M_masas);
+w1 = sqrt(diag(lambda1));
+
+% Calculo de frecuencias y longitudes de péndulo
+%f = w1. /(2 * pi);
+l = g ./ (w1.^2);
+
+% Calculo de constantes de los péndulos sintonizados
+mp = 0.05*m*3;
+
+% Definicion de matrices de masa y rigidez para el sistema sintonizado
+Mp_masas = zeros(size(6, 6));
+for i = 1:3
+    Mp_masas(i, i) = m;
+end
+Mp_masas(6, 6) = mp;
+Mp_masas(5, 5) = 0.01*Mp_masas(6, 6);
+Mp_masas(4, 4) = 0.1*Mp_masas(5, 5);
+
+kp = zeros(size(3, 1));
+for i = 1:3
+    kp(i, 1) = Mp_masas(i+3, i+3)*g/l(4-i);
+end
+
+Kp_rigidez = [ 2*k + kp(1), -k, 0, -kp(1), 0, 0;
+              -k, 2*k + kp(2), -k, 0, -kp(2), 0;
+               0, -k, k + kp(3), 0, 0, -kp(3);
+              -kp(1), 0, 0, kp(1), 0, 0;
+               0, -kp(2), 0, 0, kp(2), 0;
+               0, 0, -kp(3), 0, 0, kp(3)];
+
+% Calculo de autovalores y autovectores normalizados para el sistema sintonizado
+[V, lambda] = eig(Kp_rigidez, Mp_masas);
+w = sqrt(diag(lambda));
+
+% Valores iniciales
+x0 = [0.033; 0.066; 0.1; 0; 0; 0];
+v0 = [0; 0; 0; 0; 0; 0];
+P0 = [10000; 10000; 10000; 0; 0; 0];
+
+% Normalizar los autovectores
+V_norm = V ./ V(1,:);
+
+% Calculo de masas y rigideces modales
+M_modal = V' * Mp_masas * V;
+K_modal = V' * Kp_rigidez * V;
+
+% Paso a coordenadas modales las condiciones iniciales
+y0 = V' * Mp_masas * x0;
+vy0 = V' * Mp_masas * v0;
+P0_modal = V' * P0;
+
+% CALCULO DE EDO EN VIBRACIONES LIBRES CON PENDULOS CON AMORTIGUACION
+
+% Tiempos
+tf = 15;
+dt = 0.01;
+t = 0:dt:tf;
+
+% Frecuencias naturales amortiguadas
+wd = w .* sqrt(1 - zita.^2);
+
+% Inicializar matriz de desplazamientos modales
+yt = zeros(length(w), length(t));
+
+% Calcular desplazamientos modales en el tiempo
+for i = 1:length(w)
+    for j = 1:length(t)
+        yt(i, j) = exp(-zita(i) * w(i) * t(j)) * ...
+                   (cos(wd(i) * t(j)) + (zita(i) / sqrt(1 - zita(i)^2)) * sin(wd(i) * t(j))) * y0(i) + ...
+                   (1 / wd(i) * exp(-zita(i) * w(i) * t(j)) * sin(wd(i) * t(j))) * vy0(i);
+    end
+end
+
+% Paso de coordenadas modales a geometricas
+xt = V * yt;
+
+% Graficar la solución para vibraciones libres con amortiguación
+figure;
+plot(t, xt(1,:), 'r', t, xt(2,:), 'g', t, xt(3,:), 'b');
+xlabel('Tiempo');
+ylabel('Desplazamientos (ROJO 1, VERDE 2, AZUL 3)');
+title('Respuesta del sistema en vibraciones libres con amortiguación CON PENDULO');
+
+% CALCULO DE EDO EN VIBRACIONES FORZADAS CON PENDULOS
+
+% Matriz de amortiguación modal
+C_modal = diag(2 * zita .* w);
+
+% Inicializar matriz de desplazamientos modales para vibraciones forzadas
+ytf = zeros(length(w), length(t));
+
+% Calcular desplazamientos modales en el tiempo
+wf = w(1) * [1.1; 1.1; 1.1; 1.1; 1.1; 1.1]; 
+ro = zeros(size(w));
+D = zeros(size(w));
+beta = zeros(size(w));
+fi = zeros(size(w));
+
+for i = 1:length(w)
+    beta(i) = wf(i) / w(i);
+    D(i) = 1 / (sqrt((1 - beta(i)^2)^2 + (2 * zita(i) * beta(i))^2));
+    ro(i) = P0_modal(i) / K_modal(i, i) * D(i);
+    fi(i) = atan((2 * zita(i) * beta(i)) / (1 - beta(i)^2));
+    ytf(i, :) = ro(i) * sin(wf(i) * t - fi(i));
+end
+
+xtf = V * ytf;
+
+% Graficar la solución para vibraciones forzadas
+figure;
+plot(t, xtf(1,:), 'r', t, xtf(2,:), 'g', t, xtf(3,:), 'b');
+xlabel('Tiempo');
+ylabel('Desplazamientos (ROJO 1, VERDE 2, AZUL 3)');
+title('Respuesta del sistema en vibraciones forzadas CON PENDULO');

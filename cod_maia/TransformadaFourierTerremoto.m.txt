@@ -1,0 +1,59 @@
+clear; clc;
+
+load('VectorAceleraciones.mat', 'a');
+
+m = 36000;
+
+% Asegúrate de que 'a' sea un vector columna
+a = a(:); 
+
+% Cálculo de la fuerza
+F = m * a; 
+
+% Definición del vector de tiempo
+dt = 0.02;
+L = length(a); % Longitud del vector de aceleraciones
+t = (0:L-1) * dt; % Vector de tiempo
+
+% Graficar la señal original
+figure;
+plot(t, F);
+xlabel('Tiempo (s)');
+ylabel('Fuerza (N)');
+title('Fuerza en el dominio del tiempo');
+
+% Calcular la Transformada de Fourier
+Y = fft(F);
+
+% Calcular las amplitudes de la transformada de Fourier
+P2 = abs(Y/L);       % Magnitud bidireccional normalizada
+
+% Usar fftshift para desplazar la frecuencia cero al centro del espectro
+Y_shifted = fftshift(Y);
+P2_shifted = abs(Y_shifted/L); % Magnitud bidireccional normalizada y desplazada
+
+% Definir el vector de frecuencias
+fs = 1/dt; % Frecuencia de muestreo
+f = (-L/2:(L/2-1)) * (fs/L); % Vector de frecuencias desplazado
+
+% Graficar la transformada de Fourier - Magnitud Bidireccional
+figure;
+plot(f, P2_shifted, 'r');
+xlabel('Frecuencia (Hz)');
+ylabel('Amplitud (N)');
+title('Transformada de Fourier - Magnitud Bidireccional');
+
+% Calcular la magnitud unidireccional
+P1 = P2(1:floor(L/2)+1); % Tomar la primera mitad incluyendo la componente DC
+P1(2:end-1) = 2*P1(2:end-1); % Ajuste de amplitudes para compensar la energía
+
+% Definir el vector de frecuencias para la magnitud unidireccional
+f_unidireccional = (0:floor(L/2)) * (fs/L);
+
+% Graficar la transformada de Fourier - Magnitud Unidireccional
+figure;
+plot(f_unidireccional, P1, 'g');
+xlabel('Frecuencia (Hz)');
+ylabel('Amplitud (N)');
+title('Transformada de Fourier - Magnitud Unidireccional');
+grid on;

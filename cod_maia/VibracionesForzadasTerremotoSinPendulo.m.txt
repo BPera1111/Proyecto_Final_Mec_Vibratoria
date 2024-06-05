@@ -1,0 +1,106 @@
+%PROYECTO FINAL VIBRATORIA VIBRACIONES LIBRES SIN PENDULO CON FUERZA
+%TERREMOTO
+
+clc; clear; 
+
+load('VectorAceleraciones.mat', 'a');
+
+% Definicion de variables
+m = 36000;
+n = 3;
+E = 23500 * 10^6;
+I = 1.56 * 10^(-4);
+h = 3;
+k = 2 * 12 * E * I / h^3;
+zita = [0.05; 0.05; 0.05];
+g = 9.81;
+F = m * a;
+F = repmat(F, 1, 3)';
+
+% Definicion de matrices de masas y rigidez
+M_masas = diag(repmat(m, 1, n));
+K_rigidez = [2 * k, -k, 0;
+            -k, 2 * k, -k;
+             0, -k,  k];
+
+% Calculo de autovalores y autovectores normalizados
+[V1, lambda1] = eig(K_rigidez, M_masas);
+w1 = sqrt(diag(lambda1));
+
+% Calculo de frecuencias y longitudes de péndulo
+f = w1 .* 2 * pi;
+l = g ./ (w1.^2);
+
+% Valores iniciales
+x0 = [0; 0; 0];
+v0 = [0; 0; 0];
+
+% Calculo de autovalores y autovectores normalizados
+[V, lambda] = eig(K_rigidez, M_masas);
+w = diag(sqrt(lambda));
+
+% Normalizar los autovectores
+V_norm = V ./ V(1,:);
+
+% Calculo de masas y rigideces modales
+M_modal = V'* M_masas * V;
+K_modal = V'* K_rigidez * V;
+
+% Paso a coordenadas modales las condiciones iniciales
+y0 = V'*M_masas*x0;
+vy0 = V'*M_masas*v0;
+
+% CALCULO DE EDO CON AMORTIGUACION
+
+% Tiempos
+dt = 0.02;
+tf = (length(F)-1)*dt;
+t = 0:dt:tf;
+
+% Frecuencias naturales amortiguadas
+wd = w .* sqrt(1 - zita.^2);
+
+% Matriz de amortiguación modal
+C_modal = 2 * zita .* w .* eye(size(M_modal));
+
+% Calcular desplazamientos modales en el tiempo
+
+F_modal = V' * F;
+
+yc = zeros(length(w), length(t));
+ys = zeros(length(w), length(t));
+A = zeros(length(w), length(t));
+B = zeros(length(w), length(t));
+X = zeros(length(w), length(t));
+
+% Inicializar matriz de desplazamientos modales
+yt2 = zeros(length(w), length(t));
+
+for i = 1:length(t)
+    for n = 1:length(w)
+        yc(n, i) = F_modal(n, i)*cos(wd(n)*t(i));
+        ys(n, i) = F_modal(n, i)*sin(wd(n)*t(i));
+        if i == 1
+            A(n, i) = 0;
+            B(n, i) = 0;
+        else 
+            A(n, i) = A(n, i-1)*exp(-zita(n)*w(n)*dt)+dt/(2*M_modal(n, n)*wd(n))*(yc(n, i-1)*exp(-zita(n)*w(n)*dt)+yc(n, i));
+            B(n, i) = B(n, i-1)*exp(-zita(n)*w(n)*dt)+dt/(2*M_modal(n, n)*wd(n))*(ys(n, i-1)*exp(-zita(n)*w(n)*dt)+ys(n, i));
+        end
+        X(n, i) = A(n, i)*sin(wd(n)*t(i)) - B(n, i)*cos(wd(n)*t(i));
+        yt2(n, i) = exp(-zita(n) * w(n) * t(i)) * ...
+                (cos(wd(n)* t(i)) + zita(n)/sqrt(1 - zita(n)^2)*sin(wd(n)*t(i)))*y0(n) + ...
+                (1/wd(n)*exp(-zita(n)*w(n)* t(i))*sin(wd(n)*t(i)))*vy0(n) + X(n, i);
+    end
+end
+
+% Paso de coordenadas modales a geometricas
+xt2 = V * yt2;
+
+% Graficar la solución
+figure;
+plot(t, xt2(1,:), 'r', t, xt2(2,:), 'g', t, xt2(3,:), 'b');
+xlabel('Tiempo');
+ylabel('Desplazamientos (ROJO 1, VERDE 2, AZUL 3)');
+title('Respuesta del sistema en terremoto con amortiguación SIN PENDULOS');
+grid on;

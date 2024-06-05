@@ -1,0 +1,82 @@
+%PROYECTO FINAL VIBRATORIA VIBRACIONES LIBRES SIN PENDULO
+
+clc; clear; 
+
+load('VectorAceleraciones.mat', 'a');
+
+% Definicion de variables
+m = 36000;
+n = 3;
+E = 23500 * 10^6;
+I = 1.56 * 10^(-4);
+h = 3;
+k = 2 * 12 * E * I / h^3;
+zita = [0.05; 0.05; 0.05];
+g = 9.81;
+F = m * a;
+
+% Definicion de matrices de masas y rigidez
+M_masas = diag(repmat(m, 1, n));
+K_rigidez = [2 * k, -k, 0;
+            -k, 2 * k, -k;
+             0, -k,  k];
+
+% Calculo de autovalores y autovectores normalizados
+[V1, lambda1] = eig(K_rigidez, M_masas);
+w1 = sqrt(diag(lambda1));
+
+% Calculo de frecuencias y longitudes de péndulo
+f = w1 .* 2 * pi;
+l = g ./ (w1.^2);
+
+% Valores iniciales
+x0 = [0.033; 0.066; 0.1];
+v0 = [0; 0; 0];
+
+% Calculo de autovalores y autovectores normalizados
+[V, lambda] = eig(K_rigidez, M_masas);
+w = diag(sqrt(lambda));
+
+% Normalizar los autovectores
+V_norm = V ./ V(1,:);
+
+% Calculo de masas y rigideces modales
+M_modal = V'* M_masas * V;
+K_modal = V'* K_rigidez * V;
+
+% Paso a coordenadas modales las condiciones iniciales
+y0 = V'*M_masas*x0;
+vy0 = V'*M_masas*v0;
+
+% CALCULO DE EDO CON AMORTIGUACION
+
+% Tiempos
+dt = 0.02;
+tf = 15;
+t = 0:dt:tf;
+
+% Frecuencias naturales amortiguadas
+wd = w .* sqrt(1 - zita.^2);
+
+% Matriz de amortiguación modal
+C_modal = 2 * zita .* w .* eye(size(M_modal));
+
+% Inicializar matriz de desplazamientos modales
+yt2 = zeros(length(w),length(t));
+
+% Calcular desplazamientos modales en el tiempo
+for i = 1:length(t)
+    yt2(:, i) = exp(-zita .* w .* t(i)) .* ...
+                (cos(wd .* t(i)) + zita ./ (1 - zita.^2) .* sin(wd .* t(i))) .* y0 + ...
+                (1 ./ wd .* exp(-zita .* w .* t(i)) .* sin(wd .* t(i))) .* vy0;
+end
+
+% Paso de coordenadas modales a geometricas
+xt2 = V * yt2;
+
+% Graficar la solución
+figure;
+plot(t, xt2(1,:), 'r', t, xt2(2,:), 'g', t, xt2(3,:), 'b');
+xlabel('Tiempo');
+ylabel('Desplazamientos (ROJO 1, VERDE 2, AZUL 3)');
+title('Respuesta del sistema en vibraciones libres con amortiguación SIN PENDULOS');

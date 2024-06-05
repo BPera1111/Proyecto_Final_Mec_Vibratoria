@@ -1,0 +1,44 @@
+clc; clear;
+
+% Definicion de variables
+m = 36000;
+E = 23500 * 10^6;
+I = 1.56 * 10^(-4);
+h = 3;
+k = 2 * 12 * E * I / h^3;
+zita = 0;    % den Hartog
+g = 9.81;
+
+% Matrices de masa y rigidez
+M_masas = m;
+K_rigidez = k;
+
+% Calculo de autovalores y autovectores normalizados
+w1 = sqrt(K_rigidez / M_masas);
+
+% Valores iniciales
+x0 = 0.1;   % Desplazamiento inicial
+v0 = 0;     % Velocidad inicial
+
+% Tiempos
+tf = 15;
+dt = 0.01;
+t = 0:dt:tf;
+
+% Frecuencias naturales amortiguadas
+wd = w1 * sqrt(1 - zita^2);
+
+% Calcular desplazamientos en el tiempo
+xt = zeros(1, length(t));
+for j = 1:length(t)
+    xt(j) = exp(-zita * w1 * t(j)) * ...
+            (cos(wd * t(j)) + (zita / sqrt(1 - zita^2)) * sin(wd * t(j))) * x0;
+end
+
+% Graficar la solución para vibraciones libres con amortiguación
+figure;
+plot(t, xt, 'r');
+xlabel('Tiempo');
+ylabel('Desplazamiento');
+title('Respuesta del sistema en vibraciones libres con amortiguación');
+legend('Masa principal');

@@ -1,0 +1,90 @@
+clc; clear; close;
+
+% DUHAMEL
+
+% Definicion de variables del sistema
+J = 1;
+r = 0.1;
+m = 10 + J/(2*r^2);
+c = 500;
+k1 = 1000;
+k2 = 500;
+k = 1125;
+wc = 20;
+F0 = 50;
+
+% Tiempos
+dt = 0.005;
+t = 0:dt:7;
+n = numel(t);
+
+Pt = zeros(size(t));
+for i = 1:length(t)
+    Pt(i) = F0*sin(wc*t(i));
+end
+
+%{
+% Definicion de carga
+Pt = zeros(size(t));
+Ptcarga = [0, F0, 0];
+Pt(1:length(Ptcarga)) = Ptcarga;
+
+% Definicion de tiempos de carga
+tCarga = 0:0.2:0.4;
+
+Pt = interp1(tCarga, Ptcarga, t, 'linear','extrap'); % Produzco unna interpolacion,
+                                                     % y extrapola despues
+                                                     % de 0.72s
+
+% Mantener los valores de carga en cero después de t = 0.72
+indice = find(t > 0.4);
+Pt(indice) = 0;
+%}
+
+% Grafico carga 
+figure;
+plot(t, Pt,'b', 'LineWidth', 1);
+xlabel('Tiempo');
+ylabel('Carga P(t)');
+title('Grafico de carga en el tiempo')
+
+
+% Parametros del sistema
+
+wn = sqrt(k/m);
+zita = c/(2*wn*m);
+wd = wn*sqrt(1-zita^2);
+
+% Vectores yc e ys
+yc = zeros(size(t));
+ys = zeros(size(t));
+for i = 1:n
+    yc(i) = Pt(i)*cos(wd*t(i));
+    ys(i) = Pt(i)*sin(wd*t(i));
+end
+
+% Vectores An y Bn con regla del trapecio
+A = zeros(size(t));
+B = zeros(size(t));
+for i = 1:n
+    if i == 1
+        A(i) = 0;
+        B(i) = 0;
+    else 
+        A(i) = A(i-1)*exp(-zita*wn*dt)+dt/(2*m*wd)*(yc(i-1)*exp(-zita*wn*dt)+yc(i));
+        B(i) = B(i-1)*exp(-zita*wn*dt)+dt/(2*m*wd)*(ys(i-1)*exp(-zita*wn*dt)+ys(i));
+    end
+end
+
+% Respuesta en carga
+X = zeros(size(t));
+for i = 1:n
+    X(i) = A(i)*sin(wd*t(i)) - B(i)*cos(wd*t(i));
+end
+
+% Graficar respuesta
+figure;
+plot(t, X, 'b', 'LineWidth', 1);
+xlabel('Tiempo');
+ylabel('Desplazamiento X(t)');
+title('Grafico de desplazamiento en el tiempo');
